@@ -1,26 +1,9 @@
 from functools import lru_cache
 import joblib
-import torch
 # Assuming 'settings' is defined and accessible via your app's config system
 from app.config import settings 
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 from typing import Optional, Tuple
-
-# Define the target device once
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-print(f"Using device: {DEVICE}")
-
-@lru_cache
-def load_model_a():
-    return joblib.load(settings.model_a_path)
-
-@lru_cache
-def load_model_b():
-    from transformers import AutoModelForSequenceClassification, AutoTokenizer
-    model_name = settings.model_b_path
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForSequenceClassification.from_pretrained(model_name)
-    return model, tokenizer
 
 @lru_cache
 def load_translator_model() -> Tuple[Optional[AutoTokenizer], Optional[AutoModelForSeq2SeqLM]]:

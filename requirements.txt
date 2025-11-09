@@ -4,8 +4,6 @@ scikit-learn
 geoip2
 pandas
 joblib
-transformers
-torch
 mlflow
 evidently
 pytest
