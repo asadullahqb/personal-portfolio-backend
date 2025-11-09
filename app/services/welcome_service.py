@@ -1,9 +1,12 @@
 import os
 import requests
 import torch
+import re
 from typing import Dict, Any
+# CRITICAL: Using the correct function names from your model_loader.py
 from app.utils.model_loader import load_translator_model, load_global_language_inferencer
 
+# --- Configuration ---
 AZURE_MAPS_KEY = os.environ.get("AZURE_MAPS_SUBSCRIPTION_KEY")
 AZURE_MAPS_URL = "https://atlas.microsoft.com/geolocation/ip/json"
 API_VERSION = "1.0"
@@ -43,7 +46,7 @@ def infer_language_from_country(country_code: str) -> str:
     """
     Uses the Inference AI model (T5-small) to determine the correct ISO language code.
     """
-    # FIX: Corrected function call to match model_loader.py
+    # FIX: Corrected function call
     tokenizer, model = load_global_language_inferencer()
     
     if model is None:
@@ -53,28 +56,30 @@ def infer_language_from_country(country_code: str) -> str:
     prompt = f"What is the two-letter ISO 639-1 language code for the primary language spoken in the country with the code {country_code}? Output only the two-letter code."
 
     try:
-        # Check model device (safety check)
-        if model.device != DEVICE:
-            model = model.to(DEVICE)
-
+        # Model device is handled by model_loader's @lru_cache call
+        
         inputs = tokenizer([prompt], return_tensors="pt", max_length=512, truncation=True)
-        # CRITICAL FIX: Ensure inputs are on the device
-        inputs = {k: v.to(DEVICE) for k, v in inputs.items()} 
+        # CRITICAL FIX: Ensure input tensors are on the device
+        inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
         
         outputs = model.generate(
             **inputs, 
-            max_new_tokens=5, 
+            max_new_tokens=10, 
             do_sample=False,
             num_beams=2
         )
         
-        lang_code = tokenizer.decode(outputs[0], skip_special_tokens=True).strip().lower()
+        raw_output = tokenizer.decode(outputs[0], skip_special_tokens=True).strip().lower()
         
-        if len(lang_code) == 2 and lang_code.isalpha():
-            print(f"AI inferred language code: {lang_code}")
+        # CRITICAL FIX: Use regex to reliably extract the 2-letter code from messy output
+        match = re.search(r'([a-z]{2})', raw_output)
+        
+        if match:
+            lang_code = match.group(1)
+            print(f"AI inferred language code (cleaned): {lang_code}")
             return lang_code
         else:
-            print(f"AI inferred an unreliable code '{lang_code}' for {country_code}. Defaulting.")
+            print(f"AI inferred an unreliable code '{raw_output}' for {country_code}. Defaulting.")
             return DEFAULT_LANGUAGE_CODE
 
     except Exception as e:
@@ -87,7 +92,7 @@ def get_welcome_message(ip: str) -> Dict[str, Any]:
     2. Uses Inference AI to get the language code.
     3. Uses Translation AI (Opus-MT) to translate the message.
     """
-    # FIX: Corrected function call to match model_loader.py
+    # FIX: Corrected function call
     tokenizer_t, model_t = load_translator_model()
     
     if model_t is None:
@@ -96,6 +101,7 @@ def get_welcome_message(ip: str) -> Dict[str, Any]:
     country_code = get_country_code_from_ip(ip)
     target_lang = infer_language_from_country(country_code)
     
+    # 3. Construct Opus-MT Prompt: >>lang<< text (Required format)
     target_tag = f">>{target_lang}<<"
     prompt = f"{target_tag} {BASE_WELCOME_MESSAGE}"
 
