@@ -4,15 +4,12 @@ import torch
 from typing import Dict, Any
 from app.utils.model_loader import load_translator_model, load_global_language_inferencer
 
-# --- Configuration ---
 AZURE_MAPS_KEY = os.environ.get("AZURE_MAPS_SUBSCRIPTION_KEY")
 AZURE_MAPS_URL = "https://atlas.microsoft.com/geolocation/ip/json"
 API_VERSION = "1.0"
 BASE_WELCOME_MESSAGE = "Welcome to my personal portfolio!"
 DEFAULT_LANGUAGE_CODE = "en" 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-# --- Azure Maps Logic (IP to Country Code) ---
 
 def get_country_code_from_ip(ip: str) -> str:
     """
@@ -41,8 +38,6 @@ def get_country_code_from_ip(ip: str) -> str:
         print(f"Azure Maps API Error: {e}. Falling back to default country.")
 
     return "DEFAULT"
-
-# --- AI Inference Logic (Country Code -> Language Code) ---
 
 def infer_language_from_country(country_code: str) -> str:
     """
@@ -85,9 +80,6 @@ def infer_language_from_country(country_code: str) -> str:
     except Exception as e:
         print(f"Language Inference AI failed: {e}. Defaulting to English.")
         return DEFAULT_LANGUAGE_CODE
-
-
-# --- Final Translation Logic ---
 
 def get_welcome_message(ip: str) -> Dict[str, Any]:
     """
