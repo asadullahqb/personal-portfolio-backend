@@ -106,7 +106,8 @@ def get_welcome_message(ip: str) -> Dict[str, Any]:
     print(f"Final Prompt: {prompt}")
     
     # 4. Tokenize Input
-    inputs = tokenizer_t([prompt], return_tensors="pt", max_length=512, truncation=True).to(DEVICE)
+    inputs = tokenizer_t([prompt], return_tensors="pt", max_length=512, truncation=True)
+    inputs = {k: v.to(DEVICE) for k, v in inputs.items()} 
 
     # 5. Generate Translation
     try:
