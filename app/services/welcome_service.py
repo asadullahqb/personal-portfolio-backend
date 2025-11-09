@@ -7,7 +7,7 @@ from app.utils.model_loader import load_translator_model, load_global_language_i
 AZURE_MAPS_KEY = os.environ.get("AZURE_MAPS_SUBSCRIPTION_KEY")
 AZURE_MAPS_URL = "https://atlas.microsoft.com/geolocation/ip/json"
 API_VERSION = "1.0"
-BASE_WELCOME_MESSAGE = "Welcome to my personal portfolio!"
+BASE_WELCOME_MESSAGE = "Welcome."
 DEFAULT_LANGUAGE_CODE = "en" 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
