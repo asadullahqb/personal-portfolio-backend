@@ -1,0 +1,17 @@
+name: Retrain Models
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'  # Sunday 3 AM
+  workflow_dispatch:
+
+jobs:
+  retrain:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt
+      - run: python app/pipelines/drift_monitor.py && python app/pipelines/train_model_a.py
