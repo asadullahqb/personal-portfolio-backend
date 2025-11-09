@@ -2,24 +2,27 @@ import os
 import requests
 import torch
 from typing import Dict, Any
+# CRITICAL: This import must correctly target the function name and module path.
+# Based on the error, the module path 'app.utils.model_loader' is being located, 
+# but the function name 'get_global_translator' is not visible.
+# Re-providing the file content to ensure the function is defined.
 from app.utils.model_loader import get_global_translator
 
 # --- Configuration & Mapping ---
-# AZURE MAPS KEY: Read from the Uvicorn environment
+# AZURE MAPS KEY: Read from the Uvicorn environment (where the application runs)
 AZURE_MAPS_KEY = os.environ.get("AZURE_MAPS_SUBSCRIPTION_KEY")
 AZURE_MAPS_URL = "https://atlas.microsoft.com/geolocation/ip/json"
 API_VERSION = "1.0"
 
-BASE_WELCOME_MESSAGE = "Welcome."
-DEFAULT_LANGUAGE_CODE = "en" # Still need a fallback code for error reporting
+BASE_WELCOME_MESSAGE = "Welcome to my personal portfolio!"
+DEFAULT_LANGUAGE_CODE = "en" 
 
 # --- Azure Maps Logic (IP to Country Code) ---
-# We keep this dedicated function because Azure Maps is the authoritative source for IP geolocation.
 
 def get_country_code_from_ip(ip: str) -> str:
     """
     Uses Azure Maps Geolocation API to convert IP to a 2-letter Country Code (ISO-3166).
-    Returns 'default' string if the API call fails or the key is missing.
+    Returns 'DEFAULT' string if the API call fails or the key is missing.
     """
     if not AZURE_MAPS_KEY:
         print("WARNING: AZURE_MAPS_SUBSCRIPTION_KEY is not set. Cannot perform API lookup.")
@@ -69,7 +72,6 @@ def get_welcome_message(ip: str) -> Dict[str, Any]:
         model = model.to(device)
 
     # 3. Construct AI Prompt (AI performs language inference and translation)
-    # The prompt MUST be highly specific to ensure the T5 model gives the right output.
     if country_code == "DEFAULT":
         # If API failed, ask the AI to translate to English as a default
         prompt = f"translate English to English: {BASE_WELCOME_MESSAGE}"
