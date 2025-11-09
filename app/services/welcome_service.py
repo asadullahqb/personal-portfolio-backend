@@ -1,6 +1,5 @@
 import os
 import requests
-from google.colab import userdata # Import to access Colab Secrets
 from typing import Optional
 
 # 1. Load the Secret into environment variables
