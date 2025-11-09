@@ -1,5 +1,5 @@
 from fastapi import FastAPI
-from app.routers import model_a, model_b, health, welcome
+from app.routers import health, welcome
 
 app = FastAPI(title="Multi-Model ML API")
 
