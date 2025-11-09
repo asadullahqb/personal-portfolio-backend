@@ -9,3 +9,4 @@ mlflow
 evidently
 pytest
 pydantic
+pydantic-settings

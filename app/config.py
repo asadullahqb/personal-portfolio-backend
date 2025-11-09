@@ -1,4 +1,4 @@
-from pydantic import BaseSettings
+from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     model_a_path: str = "app/models/model_a.pkl"
