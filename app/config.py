@@ -1,3 +1,5 @@
+from pydantic import BaseSettings
+
 class Settings(BaseSettings):
     model_a_path: str = "app/models/model_a.pkl"
     model_b_path: str = "app/models/model_b"  # directory for transformer
