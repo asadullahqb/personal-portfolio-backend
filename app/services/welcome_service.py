@@ -46,7 +46,11 @@ def infer_language_from_country(country_code: str) -> str:
     """
     Uses the Inference AI model (T5-small) to determine the correct ISO language code.
     """
-    # FIX: Corrected function call
+    # CRITICAL FIX 1: If Azure Maps failed, bypass the unreliable AI inference
+    if country_code == "DEFAULT":
+        print("Bypassing AI inference for 'DEFAULT' country. Using English fallback code.")
+        return DEFAULT_LANGUAGE_CODE
+
     tokenizer, model = load_global_language_inferencer()
     
     if model is None:
@@ -56,10 +60,11 @@ def infer_language_from_country(country_code: str) -> str:
     prompt = f"What is the two-letter ISO 639-1 language code for the primary language spoken in the country with the code {country_code}? Output only the two-letter code."
 
     try:
-        # Model device is handled by model_loader's @lru_cache call
-        
+        # Check model device
+        if model.device != DEVICE:
+            model = model.to(DEVICE)
+
         inputs = tokenizer([prompt], return_tensors="pt", max_length=512, truncation=True)
-        # CRITICAL FIX: Ensure input tensors are on the device
         inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
         
         outputs = model.generate(
@@ -71,7 +76,6 @@ def infer_language_from_country(country_code: str) -> str:
         
         raw_output = tokenizer.decode(outputs[0], skip_special_tokens=True).strip().lower()
         
-        # CRITICAL FIX: Use regex to reliably extract the 2-letter code from messy output
         match = re.search(r'([a-z]{2})', raw_output)
         
         if match:
@@ -92,22 +96,21 @@ def get_welcome_message(ip: str) -> Dict[str, Any]:
     2. Uses Inference AI to get the language code.
     3. Uses Translation AI (Opus-MT) to translate the message.
     """
-    # FIX: Corrected function call
     tokenizer_t, model_t = load_translator_model()
     
     if model_t is None:
         return {"message": "Welcome (Translation Model Offline)", "language": DEFAULT_LANGUAGE_CODE, "ip_used": ip}
         
     country_code = get_country_code_from_ip(ip)
+    # FIX: target_lang will now be 'en' if country_code is 'DEFAULT'
     target_lang = infer_language_from_country(country_code)
     
-    # 3. Construct Opus-MT Prompt: >>lang<< text (Required format)
+    # 3. Construct Opus-MT Prompt: >>lang<< text (Required format for Opus-MT)
     target_tag = f">>{target_lang}<<"
     prompt = f"{target_tag} {BASE_WELCOME_MESSAGE}"
 
     print(f"Final Prompt: {prompt}")
     
-    # 4. Tokenize Input
     inputs = tokenizer_t([prompt], return_tensors="pt", max_length=512, truncation=True)
     # CRITICAL FIX: Ensure inputs are on the device
     inputs = {k: v.to(DEVICE) for k, v in inputs.items()} 
