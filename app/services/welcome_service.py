@@ -4,12 +4,9 @@ from typing import Optional
 
 # 1. Load the Secret into environment variables
 # This pulls the 'AZURE_MAPS_SUBSCRIPTION_KEY' from the Secrets pane.
-try:
-    maps_key = userdata.get('AZURE_MAPS_SUBSCRIPTION_KEY')
-    if maps_key:
-        os.environ["AZURE_MAPS_SUBSCRIPTION_KEY"] = maps_key
-except KeyError:
-    print("ERROR: Please set 'AZURE_MAPS_SUBSCRIPTION_KEY' in the Colab Secrets pane.")
+AZURE_MAPS_KEY = os.environ.get("AZURE_MAPS_SUBSCRIPTION_KEY")
+AZURE_MAPS_URL = "https://atlas.microsoft.com/geolocation/ip/json"
+API_VERSION = "1.0"
 
 # --- Configuration ---
 # Now it safely reads from os.environ
