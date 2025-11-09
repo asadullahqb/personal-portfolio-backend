@@ -2,11 +2,7 @@ import os
 import requests
 import torch
 from typing import Dict, Any
-# CRITICAL: This import must correctly target the function name and module path.
-# Based on the error, the module path 'app.utils.model_loader' is being located, 
-# but the function name 'get_global_translator' is not visible.
-# Re-providing the file content to ensure the function is defined.
-from app.utils.model_loader import get_global_translator
+from app.utils.model_loader import load_translator_model
 
 # --- Configuration & Mapping ---
 # AZURE MAPS KEY: Read from the Uvicorn environment (where the application runs)
@@ -57,7 +53,7 @@ def get_welcome_message(ip: str) -> Dict[str, Any]:
     1. Gets country code from IP via Azure Maps.
     2. Prompts the Hugging Face model to infer the language and translate the message.
     """
-    tokenizer, model = get_global_translator()
+    tokenizer, model = load_translator_model()
     
     # Fallback if model failed to load
     if model is None:
