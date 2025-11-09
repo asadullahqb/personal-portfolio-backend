@@ -9,6 +9,10 @@ class WelcomeInput(BaseModel):
 
 class WelcomeOutput(BaseModel):
     message: str
+    language: str
+    country_code: str
+    ip_used: str
+    source: str
 
 @router.post("/", response_model=WelcomeOutput)
 def welcome(payload: WelcomeInput):
