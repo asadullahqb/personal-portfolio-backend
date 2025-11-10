@@ -1,11 +1,6 @@
 fastapi
 uvicorn
-scikit-learn
-geoip2
-pandas
-joblib
 mlflow
-evidently
 pytest
 pydantic
 pydantic-settings
