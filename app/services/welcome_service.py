@@ -3,10 +3,20 @@ import requests
 from typing import Dict, Any
 from collections import defaultdict
 import threading
-import dotenv
 import ipaddress
 
-dotenv.load_dotenv()
+current_env = os.environ.get('VERCEL_ENV', 'development')
+
+# Load environment variables from a .env file ONLY if running in development mode.
+if current_env == 'development':
+    # This assumes your local .env file is in the root directory
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("Environment: Local Development. Loaded variables from .env file.")
+else:
+    # In Vercel (production or preview), the variables are securely injected 
+    # via the Vercel dashboard and do not need a .env file.
+    print(f"Environment: {current_env.capitalize()}. Using Vercel environment variables.")
 
 API_URL = "https://router.huggingface.co/v1/chat/completions"
 
