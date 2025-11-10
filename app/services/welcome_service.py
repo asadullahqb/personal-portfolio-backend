@@ -1,8 +1,11 @@
 import os
 import requests
 from typing import Dict, Any
-
+from collections import defaultdict
+import threading
 import dotenv
+import ipaddress
+
 dotenv.load_dotenv()
 
 API_URL = "https://router.huggingface.co/v1/chat/completions"
@@ -11,6 +14,38 @@ headers = {
     "Authorization": f"Bearer {os.environ['HF_API_KEY']}",
 }
 
+# Thread-safe in-memory cache: {ip_prefix (first 3 octets): {country_code: {message, language}}}
+_ip_cache = {}
+_cache_lock = threading.Lock()
+
+
+def _ip_prefix(ip: str, prefix_octets: int = 3) -> str:
+    """Return the first N octets of the IPv4 address as a prefix string."""
+    try:
+        parts = ip.split('.')
+        if len(parts) != 4:
+            raise ValueError("Invalid IP format")
+        return '.'.join(parts[:prefix_octets])
+    except Exception:
+        return ""
+
+
+def _find_in_cache(ip: str):
+    """Try to find a cached welcome for similar (same /24) IP."""
+    prefix = _ip_prefix(ip)
+    with _cache_lock:
+        return _ip_cache.get(prefix)
+
+
+def _add_to_cache(ip: str, country_code: str, language: str, message: str):
+    prefix = _ip_prefix(ip)
+    # Store whole result under this prefix
+    with _cache_lock:
+        _ip_cache[prefix] = {
+            "country_code": country_code,
+            "language": language,
+            "message": message,
+        }
 
 def query(payload):
     response = requests.post(API_URL, headers=headers, json=payload)
@@ -25,7 +60,19 @@ def instruct_get_localized_welcome_from_ip(ip: str) -> Dict[str, str]:
       - Primary language (ISO 639-1)
       - The relevant localized welcome message
     Accepts a public IPv4 address as input.
+    Utilizes a cache to avoid unnecessary LLM queries for similar IPs.
     """
+    # Try from cache first
+    cached = _find_in_cache(ip)
+    if cached:
+        # Compose our response as required, add 'source'
+        return {
+            "language": cached["language"].strip().lower(),
+            "message": cached["message"].strip(),
+            "country_code": cached["country_code"].strip().upper(),
+            "source": "cache"
+        }
+
     prompt = (
         f"You are an international greeter bot. "
         f"Given an IPv4 address, infer the most probable country. "
@@ -71,6 +118,13 @@ def instruct_get_localized_welcome_from_ip(ip: str) -> Dict[str, str]:
             and "language" in response_obj
             and "country_code" in response_obj
         ):
+            # Store in cache for similar IPs
+            _add_to_cache(
+                ip,
+                response_obj["country_code"].strip().upper(),
+                response_obj["language"].strip().lower(),
+                response_obj["message"].strip(),
+            )
             return {
                 "language": response_obj["language"].strip().lower(),
                 "message": response_obj["message"].strip(),
@@ -95,6 +149,7 @@ def get_welcome_message(ip: str) -> Dict[str, Any]:
     Uses an LLM to:
       1. Infer country code (from IP)
       2. Infer language code and localized welcome message (single step)
+    Supports caching to avoid repeated LLM lookups for similar IPs.
     """
     result = instruct_get_localized_welcome_from_ip(ip)
     return {
