@@ -1,32 +1,54 @@
 import os
 import requests
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from collections import defaultdict
 import threading
 import ipaddress
+import json as _json
+import re as _re
 
+# --- Environment & Configuration ---
+
+# Check if running in development mode for conditional .env loading
 current_env = os.environ.get('VERCEL_ENV', 'development')
 
-# Load environment variables from a .env file ONLY if running in development mode.
+# Conditional dotenv loading MUST happen before any code tries to access the key
 if current_env == 'development':
-    # This assumes your local .env file is in the root directory
-    from dotenv import load_dotenv
-    load_dotenv()
-    print("Environment: Local Development. Loaded variables from .env file.")
+    # Import is placed here to avoid ImportError if python-dotenv is not installed in prod
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+        print("Environment: Local Development. Loaded variables from .env file.")
+    except ImportError:
+        print("WARNING: python-dotenv not installed. Using system variables only.")
 else:
-    # In Vercel (production or preview), the variables are securely injected 
-    # via the Vercel dashboard and do not need a .env file.
     print(f"Environment: {current_env.capitalize()}. Using Vercel environment variables.")
 
 API_URL = "https://router.huggingface.co/v1/chat/completions"
 
-headers = {
-    "Authorization": f"Bearer {os.environ['HF_API_KEY']}",
-}
+# Global placeholder for the key, retrieved safely inside query()
+_HF_API_KEY_CACHE: Optional[str] = None 
 
 # Thread-safe in-memory cache: {ip_prefix (first 3 octets): {country_code: {message, language}}}
 _ip_cache = {}
 _cache_lock = threading.Lock()
+
+
+def _get_hf_headers() -> Optional[Dict[str, str]]:
+    """Retrieves the API key safely and returns the header dict."""
+    global _HF_API_KEY_CACHE
+    
+    if not _HF_API_KEY_CACHE:
+        # FIX 1: Use .get() to avoid crashing on startup (KeyError)
+        key = os.environ.get("HF_API_KEY")
+        if not key:
+            print("ERROR: HF_API_KEY is missing from environment variables.")
+            return None
+        _HF_API_KEY_CACHE = key
+
+    return {
+        "Authorization": f"Bearer {_HF_API_KEY_CACHE}",
+    }
 
 
 def _ip_prefix(ip: str, prefix_octets: int = 3) -> str:
@@ -34,7 +56,8 @@ def _ip_prefix(ip: str, prefix_octets: int = 3) -> str:
     try:
         parts = ip.split('.')
         if len(parts) != 4:
-            raise ValueError("Invalid IP format")
+            # We don't handle IPv6 here, return empty string which will bypass cache
+            return ""
         return '.'.join(parts[:prefix_octets])
     except Exception:
         return ""
@@ -57,20 +80,20 @@ def _add_to_cache(ip: str, country_code: str, language: str, message: str):
             "message": message,
         }
 
-def query(payload):
-    response = requests.post(API_URL, headers=headers, json=payload)
+def query(payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Queries the Hugging Face API."""
+    headers = _get_hf_headers()
+    if not headers:
+        return None # Return None if key is missing
+        
+    response = requests.post(API_URL, headers=headers, json=payload, timeout=15)
     response.raise_for_status()
     return response.json()
 
 
 def instruct_get_localized_welcome_from_ip(ip: str) -> Dict[str, str]:
     """
-    Uses an LLM (via Hugging Face API) to determine:
-      - Country (2-letter ISO code)
-      - Primary language (ISO 639-1)
-      - The relevant localized welcome message
-    Accepts a public IPv4 address as input.
-    Utilizes a cache to avoid unnecessary LLM queries for similar IPs.
+    Uses an LLM (via Hugging Face API) to determine: Country, Language, and Message.
     """
     # Try from cache first
     cached = _find_in_cache(ip)
@@ -104,23 +127,31 @@ def instruct_get_localized_welcome_from_ip(ip: str) -> Dict[str, str]:
 
     try:
         hf_payload = query(payload)
-        # Try to extract the generated text, which may be inside choices[0]['message']['content']
+        if hf_payload is None:
+             return {
+                "language": "NULL", "message": "Failed", "country_code": "NULL", "source": "fallback-missing-key"
+            }
+             
+        # Try to extract the generated text
         content = None
         if isinstance(hf_payload, dict) and "choices" in hf_payload:
             choices = hf_payload["choices"]
             if isinstance(choices, list) and choices and "message" in choices[0] and "content" in choices[0]["message"]:
                 content = choices[0]["message"]["content"]
-        import json as _json
-        import re as _re
+        
         response_obj = None
         if content:
-            match = _re.search(r"\{[\s\S]*?\}", content)
-            if match:
-                content = match.group(0)
+            # FIX 2: More robust JSON extraction/cleaning
+            # Look for the last valid JSON object in the response
+            json_str = _re.search(r'\{[\s\S]*?\}', content)
+            if json_str:
+                 content = json_str.group(0)
+            
             try:
                 response_obj = _json.loads(content)
             except Exception as e:
                 print(f"Could not parse instruct JSON output: '{content}' :: {e}")
+                
         if (
             response_obj
             and isinstance(response_obj, dict)
@@ -142,7 +173,7 @@ def instruct_get_localized_welcome_from_ip(ip: str) -> Dict[str, str]:
                 "source": "ai"
             }
         else:
-            print(f"Response did not contain valid keys: {hf_payload}")
+            print(f"Response did not contain valid keys or valid JSON structure: {hf_payload}")
     except Exception as e:
         print(f"Hugging Face instruct API error: {e}")
 
