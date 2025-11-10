@@ -1,6 +1,5 @@
 fastapi
 uvicorn
-mlflow
 pytest
 pydantic
 pydantic-settings
