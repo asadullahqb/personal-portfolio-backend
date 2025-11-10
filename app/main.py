@@ -1,3 +1,10 @@
+import os
+import logging
+logging.basicConfig(level=logging.INFO)
+import dotenv
+dotenv.load_dotenv()
+logging.info(f"Vercel Startup check. HF_API_KEY status: {'SET' if os.environ.get('HF_API_KEY') else 'MISSING'}")
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import health, welcome

@@ -3,3 +3,4 @@ uvicorn
 pytest
 pydantic
 pydantic-settings
+python-dotenv
